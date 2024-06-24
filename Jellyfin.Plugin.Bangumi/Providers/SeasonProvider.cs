@@ -132,3 +132,47 @@ public class SeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>, IHasO
         return _api.GetHttpClient().GetAsync(url, token);
     }
 }
+
+internal static class SeasonInfoExt
+{
+    public static string ToLogString(this SeasonInfo info)
+    {
+        return $"{info}" +
+               $"\nName: {info.Name}" +
+               $"\nOriginalTitle: {info.OriginalTitle}" +
+               $"\nPath: {info.Path}" +
+               $"\nProviderIds: {info.ProviderIds.ToLogString()}" +
+               $"\nIndexNumber: {info.IndexNumber}, ParentIndexNumber: {info.ParentIndexNumber}" +
+               $"\nSeriesProviderIds: {info.SeriesProviderIds.ToLogString()}";
+    }
+    
+    public static string ToLogString<TKey, TValue> (this IDictionary<TKey, TValue> dictionary)
+    {
+        return "{" + string.Join(",", dictionary.Select(kv => kv.Key + "=" + kv.Value).ToArray()) + "}";
+    }
+    
+    public static T GetItemAtPosition<T>(this IEnumerable<T> collection, int position)
+    {
+        if (collection == null)
+        {
+            throw new ArgumentNullException(nameof(collection), "Collection cannot be null.");
+        }
+        
+        if (position < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(position), "Position must be non-negative.");
+        }
+
+        using (var enumerator = collection.GetEnumerator())
+        {
+            for (int i = 0; i <= position; i++)
+            {
+                if (!enumerator.MoveNext())
+                {
+                    return default; // Position is out of range
+                }
+            }
+            return enumerator.Current;
+        }
+    }
+}
