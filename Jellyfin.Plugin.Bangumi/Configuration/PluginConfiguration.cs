@@ -33,4 +33,6 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool UseTestingSearchApi { get; set; }
 
     public bool ConvertLineBreaks { get; set; } = true;
+
+    public bool UseExistingEpisodeProviderId { get; set; } = false;
 }
