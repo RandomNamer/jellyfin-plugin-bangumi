@@ -149,7 +149,7 @@ public partial class BangumiApi
                                                               || subject?.PopularTags.Contains("剧场版") == true;
         }
         var relatedSubjects = await GetSubjectRelations(id, token);
-        var subjectsQueue = new Queue<RelatedSubject>(relatedSubjects?.Where(item => item.Relation == SubjectRelation.Sequel) ?? []);
+        var subjectsQueue = new Queue<RelatedSubject>(relatedSubjects?.Where(item => item.Relation == SubjectRelation.Sequel) ?? Enumerable.Empty<RelatedSubject>());
         while (subjectsQueue.Any())
         {
             var relatedSubject = subjectsQueue.Dequeue();
@@ -157,7 +157,7 @@ public partial class BangumiApi
             if (subjectCandidate != null && SeriesSequelUnqualified(subjectCandidate)) 
             {
                 var nextRelatedSubjects = await GetSubjectRelations(subjectCandidate.Id, token);
-                foreach (var nextRelatedSubject in nextRelatedSubjects?.Where(item => item.Relation == SubjectRelation.Sequel) ?? [])
+                foreach (var nextRelatedSubject in nextRelatedSubjects?.Where(item => item.Relation == SubjectRelation.Sequel) ?? Enumerable.Empty<RelatedSubject>())
                 {
                     subjectsQueue.Enqueue(nextRelatedSubject);
                 }
