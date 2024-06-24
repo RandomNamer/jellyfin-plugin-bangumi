@@ -169,14 +169,14 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
         if (parent is Season)
             if (int.TryParse(parent.ProviderIds.GetValueOrDefault(Constants.ProviderName), out var seasonId))
                 seriesId = seasonId;
-
+        //SeriesProvider is always first season's 
         if (seriesId == 0)
             if (!int.TryParse(info.SeriesProviderIds?.GetValueOrDefault(Constants.ProviderName), out seriesId))
                 return null;
 
         if (localConfiguration.Id != 0)
             seriesId = localConfiguration.Id;
-
+        _log.LogInformation("Get Episode > got parent season #{s}, parsed season id: #{i}", parent, seriesId);
         double? episodeIndex = info.IndexNumber;
 
         if (Configuration.AlwaysReplaceEpisodeNumber)
@@ -190,7 +190,7 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
             episodeIndex -= localConfiguration.Offset;
         }
 
-        if (int.TryParse(info.ProviderIds?.GetValueOrDefault(Constants.ProviderName), out var episodeId))
+        if (Configuration.UseExistingEpisodeProviderId && int.TryParse(info.ProviderIds?.GetValueOrDefault(Constants.ProviderName), out var episodeId))
         {
             var episode = await _api.GetEpisode(episodeId, token);
             if (episode == null)
