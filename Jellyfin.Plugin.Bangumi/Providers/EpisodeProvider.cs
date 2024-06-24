@@ -314,3 +314,18 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
         return episodeIndex;
     }
 }
+
+internal static class EpisodeExts {
+    public static string ToLogString(this EpisodeInfo info)
+    {
+        return $"{info}" +
+               $"Name: {info.Name}" +
+               $"\nOriginalTitle: {info.OriginalTitle}" +
+               $"\nPath: {info.Path}" +
+               $"\nProviderIds: {info.ProviderIds.ToLogString()}" +
+               $"\nIndexNumber: {info.IndexNumber}, ParentIndexNumber: {info.ParentIndexNumber}" +
+               $"\nSeriesProviderIds: {info.SeriesProviderIds.ToLogString()}" +
+               $"\nIndexNumberEnd: {info.IndexNumberEnd}" +
+               $"\nIsMissing: {info.IsMissingEpisode}";
+    }
+}
