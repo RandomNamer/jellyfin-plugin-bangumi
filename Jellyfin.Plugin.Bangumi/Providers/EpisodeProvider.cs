@@ -176,7 +176,6 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
 
         if (localConfiguration.Id != 0)
             seriesId = localConfiguration.Id;
-        _log.LogInformation("Get Episode > got parent season #{s}, parsed season id: #{i}", parent, seriesId);
         double? episodeIndex = info.IndexNumber;
 
         if (Configuration.AlwaysReplaceEpisodeNumber)
@@ -189,7 +188,7 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
             _log.LogInformation("applying offset {Offset} to episode index {EpisodeIndex}", -localConfiguration.Offset, episodeIndex);
             episodeIndex -= localConfiguration.Offset;
         }
-
+        _log.LogInformation("GetEpisode final request > parent season {s}, parsed season id: {i}, episodeIndex: {ID}, type: {TYPE}", parent, seriesId, episodeIndex, type);
         if (Configuration.UseExistingEpisodeProviderId && int.TryParse(info.ProviderIds?.GetValueOrDefault(Constants.ProviderName), out var episodeId))
         {
             var episode = await _api.GetEpisode(episodeId, token);
