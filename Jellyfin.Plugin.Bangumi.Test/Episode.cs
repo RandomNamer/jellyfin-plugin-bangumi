@@ -565,4 +565,33 @@ public class Episode
         Assert.IsNotNull(episodeData.Item, "episode data should not be null");
         Assert.AreEqual("だから、思春期は終わらずに、青春は続いていく。", episodeData.Item.Name, "should return the right episode title");
     }
+    
+    [TestMethod]
+    public async Task TestAccumulatedEpisodeIndex()
+    {
+        var episodeData = await _provider.GetMetadata(new EpisodeInfo
+        {
+            IndexNumber = 5,
+            Path = FakePath.CreateFile("\\Anime\\March Comes in Like a Lion (2016) [tvdbid-306269]\\Season 02\\Episode S02E05 - Setting Sun + Ramune.mkv"),
+            SeriesProviderIds = { { Constants.ProviderName, "211567" } }
+        }, _token);
+        Assert.IsNotNull(episodeData.Item);
+        Assert.AreEqual(episodeData.Item.ProviderIds.GetValueOrDefault(Constants.ProviderName), "744210");
+        
+        episodeData = await _provider.GetMetadata(new EpisodeInfo
+        {
+            IndexNumber = 1,
+            Path = FakePath.CreateFile("Anime\\The Dangers in My Heart (2023)\\Season 02\\Episode S02E01 - I, We, Fell in Love.mkv"),
+            SeriesProviderIds = { { Constants.ProviderName, "441795" } }
+        }, _token);
+        Assert.AreEqual(episodeData.Item.ProviderIds.GetValueOrDefault(Constants.ProviderName), "1279648");
+        
+        episodeData = await _provider.GetMetadata(new EpisodeInfo
+        {
+            IndexNumber = 13,
+            Path = FakePath.CreateFile("Anime\\The Dangers in My Heart (2023)\\Season 02\\Episode S02E13 - I, We, Fell in Love.mkv"),
+            SeriesProviderIds = { { Constants.ProviderName, "441795" } }
+        }, _token);
+        Assert.AreEqual(episodeData.Item.ProviderIds.GetValueOrDefault(Constants.ProviderName), "1288116");
+    }
 }

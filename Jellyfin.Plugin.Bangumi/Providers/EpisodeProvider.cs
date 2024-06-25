@@ -14,6 +14,7 @@ using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Providers;
 using Microsoft.Extensions.Logging;
 using Episode = MediaBrowser.Controller.Entities.TV.Episode;
+using BangumiEpisode = Jellyfin.Plugin.Bangumi.Model.Episode;
 
 namespace Jellyfin.Plugin.Bangumi.Providers;
 
@@ -219,17 +220,32 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
             ) - localConfiguration.Offset;
         try
         {
-            var episode = episodeListData.OrderBy(x => x.Type).FirstOrDefault(x => x.Order.Equals(episodeIndex));
-            if (episode != null || type is null or EpisodeType.Normal)
-                return episode;
-            _log.LogWarning("cannot find episode {index} with type {type}, searching all types", episodeIndex, type);
+            // Sometimes episode from second season will have accumulated ordering e.g. for S02E05 the order would be 12+5.
+            // I only use Jellyfin's naming conventions, so each season episodes starts from 0 or 1. Offsets should always be used.
+            var accumulateOrderOffset = GetAccumulateOrderingOffset(episodeListData);
+            var episode = episodeListData.OrderBy(x => x.Type).FirstOrDefault(x => x.Order.Equals(episodeIndex + accumulateOrderOffset)) ??
+                          episodeListData.OrderBy(x => x.Type).FirstOrDefault(x => x.Order.Equals(episodeIndex));
+            if (type is null or EpisodeType.Normal) return episode;
+            if (episode != null) return episode;
+            _log.LogWarning("Still cannot find episode {index} with type {type}, searching all types", episodeIndex,
+                type);
             type = null;
             goto SkipBangumiId;
+
         }
         catch (InvalidOperationException)
         {
             return null;
         }
+    }
+
+    private double GetAccumulateOrderingOffset(List<BangumiEpisode> fullEpisodeList)
+    {
+        var seasonOrderList = fullEpisodeList.Where(e => e.Type.Equals(EpisodeType.Normal)).Select(e => e.Order).ToList();
+        if (!seasonOrderList.Any()) return 0;
+        var firstEpisodeOrder = seasonOrderList.Min();
+        if (firstEpisodeOrder >= 2f) return firstEpisodeOrder - 1;
+        else return 0;
     }
 
     private EpisodeType? GuessEpisodeTypeFromFileName(string fileName)
