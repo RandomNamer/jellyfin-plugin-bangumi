@@ -1,3 +1,12 @@
+# [My fork of JF bangumi plugin](https://zeyuzhang3.notion.site/My-fork-of-jellyfin-plugin-bangumi-c1545959ddfd423bb2e978d4bf1dc2e2)
+## Branches 
+- `dev`
+- `backport`: Keep it compatible with Jellyfin version 10.8.13 with all new features and bugfixes
+- `fix/*`
+- `feat/*`
+
+<hr>
+
 # [bgm.tv](https://bgm.tv) metadata provider for Jellyfin
 
 [![Jellyfin Plugin](https://github.com/kookxiang/jellyfin-plugin-bangumi/actions/workflows/jellyfin.yml/badge.svg)](https://github.com/kookxiang/jellyfin-plugin-bangumi/actions/workflows/jellyfin.yml)
