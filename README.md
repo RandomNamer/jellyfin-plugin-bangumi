@@ -1,5 +1,5 @@
 # [My fork of JF bangumi plugin](https://zeyuzhang3.notion.site/My-fork-of-jellyfin-plugin-bangumi-c1545959ddfd423bb2e978d4bf1dc2e2)
-## Branches: 
+## Branches 
 - `dev`
 - `backport`: Keep it compatible with Jellyfin version 10.8.13 with all new features and bugfixes
 - `fix/*`
