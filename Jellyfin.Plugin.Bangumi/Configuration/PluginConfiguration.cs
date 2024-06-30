@@ -34,5 +34,7 @@ public class PluginConfiguration : BasePluginConfiguration
 
     public bool ConvertLineBreaks { get; set; } = true;
 
+    public int SeasonGuessMaxSearchCount { get; set; } = 2;
+
     public bool UseExistingEpisodeProviderId { get; set; } = false;
 }
