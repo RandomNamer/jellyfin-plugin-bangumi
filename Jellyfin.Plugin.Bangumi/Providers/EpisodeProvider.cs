@@ -162,6 +162,8 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
         var fileName = Path.GetFileName(info.Path);
         if (string.IsNullOrEmpty(fileName))
             return null;
+        if (ShouldSkipMatchingByFileName(fileName))
+            return null;
 
         var type = IsSpecial(info.Path) ? EpisodeType.Special : GuessEpisodeTypeFromFileName(fileName);
         var seriesId = localConfiguration.Id;
@@ -237,6 +239,12 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
         {
             return null;
         }
+    }
+
+    private bool ShouldSkipMatchingByFileName(string fileName)
+    {
+        string opEdPattern = @"\b(OP|ED|NCOP|NCED)(\d{1,2})?\b";
+        return Regex.Match(fileName, opEdPattern, RegexOptions.IgnoreCase).Success;
     }
 
     private double GetAccumulateOrderingOffset(List<BangumiEpisode> fullEpisodeList)

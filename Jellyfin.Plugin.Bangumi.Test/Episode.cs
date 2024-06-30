@@ -594,4 +594,24 @@ public class Episode
         }, _token);
         Assert.AreEqual(episodeData.Item.ProviderIds.GetValueOrDefault(Constants.ProviderName), "1288116");
     }
+
+    [TestMethod]
+    public async Task TestSkipSpecialsMatching()
+    {
+        var episodeData = await _provider.GetMetadata(new EpisodeInfo
+        {
+            IndexNumber = 5,
+            Path = FakePath.CreateFile("\\Anime\\March Comes in Like a Lion (2016) [tvdbid-306269]\\Season 02\\clips\\NCED01.mkv"),
+            SeriesProviderIds = { { Constants.ProviderName, "211567" } }
+        }, _token);
+        Assert.AreEqual(null, episodeData?.Item);
+        
+        episodeData = await _provider.GetMetadata(new EpisodeInfo
+        {
+            IndexNumber = 5,
+            Path = FakePath.CreateFile("\\Anime\\March Comes in Like a Lion (2016) [tvdbid-306269]\\Season 02\\Episode S02E05 - TestED01.mkv"),
+            SeriesProviderIds = { { Constants.ProviderName, "211567" } }
+        }, _token);
+        Assert.AreNotEqual(null, episodeData?.Item);
+    }
 }
