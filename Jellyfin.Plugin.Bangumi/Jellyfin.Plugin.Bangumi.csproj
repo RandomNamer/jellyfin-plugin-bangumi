@@ -25,6 +25,10 @@
         <InternalsVisibleTo Include="Jellyfin.Plugin.Bangumi.Test"/>
     </ItemGroup>
 
+    <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+        <Exec Command="powershell -ExecutionPolicy Bypass -File .\generate_git_hash.ps1" />
+    </Target>
+
     <Target Name="Release" AfterTargets="Build" Condition="'$(Configuration)'=='Release'">
         <ItemGroup>
             <AssemblyDependencies Include="$(OutputPath)*.dll"/>
