@@ -44,9 +44,10 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
 
     private static readonly Regex OpeningEpisodeFileNameRegex = new(@"(NC)?OP([^a-zA-Z]|$)");
     private static readonly Regex EndingEpisodeFileNameRegex = new(@"(NC)?ED([^a-zA-Z]|$)");
-    private static readonly Regex SpecialEpisodeFileNameRegex = new(@"(SPs?|Specials?|OVA|OAD)([^a-zA-Z]|$)");
+    private static readonly Regex SpecialEpisodeFileNameRegex = new(@"(SPs?|Specials?|OVA|OAD|mini)([^a-zA-Z]|$)", RegexOptions.IgnoreCase);
     private static readonly Regex PreviewEpisodeFileNameRegex = new(@"[^\w]PV([^a-zA-Z]|$)");
-
+    //In JF 10.9 or later, files under all these folder should never trigger metadata fetching
+    private static readonly Regex JellyfinSpecialsFolderNameRegex = new(@"\b(behind the scenes|deleted scenes|interviews|scenes|samples|shorts|featurettes|clips|other|extras|trailers)\b");
     private static readonly Regex[] AllSpecialEpisodeFileNameRegex =
     {
         SpecialEpisodeFileNameRegex,
@@ -154,7 +155,8 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
         var parentPath = Path.GetDirectoryName(filePath);
         var folderName = Path.GetFileName(parentPath);
         return SpecialEpisodeFileNameRegex.IsMatch(fileName) ||
-               (checkParent && SpecialEpisodeFileNameRegex.IsMatch(folderName ?? ""));
+               (checkParent && SpecialEpisodeFileNameRegex.IsMatch(folderName ?? "")) ||
+               JellyfinSpecialsFolderNameRegex.IsMatch(folderName ?? "");
     }
 
     private async Task<Model.Episode?> GetEpisode(EpisodeInfo info, LocalConfiguration localConfiguration, CancellationToken token)
@@ -162,12 +164,20 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
         var fileName = Path.GetFileName(info.Path);
         if (string.IsNullOrEmpty(fileName))
             return null;
-        if (ShouldSkipMatchingByFileName(fileName))
-            return null;
 
         var type = IsSpecial(info.Path) ? EpisodeType.Special : GuessEpisodeTypeFromFileName(fileName);
         var seriesId = localConfiguration.Id;
 
+        if (ShouldSkipMatchingByFileName(fileName))
+        {
+            //Only trust this plugin to fetch metadata of specials
+            _log.LogWarning($"Other provider blocked: File with type {type}: {info.Path}");
+            PolluteItemLookup(info);
+            if (type is null or EpisodeType.Normal or EpisodeType.Other)
+            {
+                return null;
+            }
+        }
         var parent = _libraryManager.FindByPath(Path.GetDirectoryName(info.Path), true);
         if (parent is Season)
             if (int.TryParse(parent.ProviderIds.GetValueOrDefault(Constants.ProviderName), out var seasonId))
@@ -241,9 +251,32 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
         }
     }
 
+    /// <summary>
+    /// Pollute <see cref="ItemLookupInfo"/> to later block other MetadataProviders from fetching metadata for Jellyfin.
+    /// </summary>
+    /// <seealso cref="MetaDataService.ExecuteRemoteProviders"/>
+    private void PolluteItemLookup(ItemLookupInfo id)
+    {
+        Dictionary<string, string> otherProviderKeys = new()
+        {
+            { "Imdb", "2" },
+            { "Tmdb", "3" },
+            { "Tvdb", "4" },
+            { "Tvcom", "5" },
+            { "TmdbCollection", "7" },
+            {"AniDb", "AniDB"}, // Jellyfin.Plugin.AniDB.Providers.ProviderNames
+            {"AniList", "AniList"}, // Jellyfin.Plugin.AniList.Providers.ProviderNames
+            {"AniSearch", "AniSearch"}, //Jellyfin.Plugin.AniSearch.Providers.ProviderNames
+        };
+        int fakeProviderId = 1145141919;
+        foreach (var kv in otherProviderKeys)
+        {
+            id.ProviderIds[kv.Value] = fakeProviderId.ToString();
+        }
+    }
     private bool ShouldSkipMatchingByFileName(string fileName)
     {
-        string opEdPattern = @"\b(OP|ED|NCOP|NCED)(\d{1,2})?\b";
+        string opEdPattern = @"\b(OP|ED|NCOP|NCED|PV|MENU|mini)(\d{1,2})?\b";
         return Regex.Match(fileName, opEdPattern, RegexOptions.IgnoreCase).Success;
     }
 
