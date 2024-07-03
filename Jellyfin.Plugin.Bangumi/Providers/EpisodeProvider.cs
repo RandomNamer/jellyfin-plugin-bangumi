@@ -239,8 +239,10 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
                           episodeListData.OrderBy(x => x.Type).FirstOrDefault(x => x.Order.Equals(episodeIndex));
             if (type is null or EpisodeType.Normal) return episode;
             if (episode != null) return episode;
+            //Should we search a normal episode to special?
             _log.LogWarning("Still cannot find episode {index} with type {type}, searching all types", episodeIndex,
                 type);
+            if (ShouldSkipMatchingByFileName(fileName)) return null;
             type = null;
             goto SkipBangumiId;
 
