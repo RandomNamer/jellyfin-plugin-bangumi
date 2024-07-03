@@ -19,8 +19,9 @@ public partial class BangumiApi
     private const int PageSize = 50;
     private const int Offset = 20;
 
-    public Task<List<Subject>> SearchSubject(string keyword, CancellationToken token)
+    public Task<List<Subject>> SearchSubject(string keyword, CancellationToken token, int delayMs = 1000)
     {
+        Task.Delay(delayMs, token);
         return SearchSubject(keyword, SubjectType.Anime, token);
     }
 
