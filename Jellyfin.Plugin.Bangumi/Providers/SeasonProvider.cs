@@ -46,7 +46,7 @@ public class SeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>, IHasO
         };
         var localConfiguration = await LocalConfiguration.ForPath(info.Path);
 
-        var parent = _libraryManager.FindByPath(Path.GetDirectoryName(info.Path), true);
+        var parent = _libraryManager.FindByPath(Path.GetDirectoryName(info.Path) ?? "some", true);
 
         var subjectId = 0;
         if (localConfiguration.Id != 0)
