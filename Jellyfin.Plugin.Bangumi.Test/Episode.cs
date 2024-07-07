@@ -609,7 +609,7 @@ public class Episode
         episodeData = await _provider.GetMetadata(new EpisodeInfo
         {
             IndexNumber = 5,
-            Path = FakePath.CreateFile("\\Anime\\March Comes in Like a Lion (2016) [tvdbid-306269]\\Season 02\\Episode S02E05 - TestED01.mkv"),
+            Path = FakePath.CreateFile("\\Anime\\March Comes in Like a Lion (2016) [tvdbid-306269]\\Season 02\\Episode S02E05 - Tested.mkv"),
             SeriesProviderIds = { { Constants.ProviderName, "211567" } }
         }, _token);
         Assert.AreNotEqual(null, episodeData?.Item);
