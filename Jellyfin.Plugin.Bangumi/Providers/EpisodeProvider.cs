@@ -104,6 +104,7 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
         if (IsSpecial(info.Path, false) || episode.Type == EpisodeType.Special || info.ParentIndexNumber == 0)
         {
             result.Item.ParentIndexNumber = 0;
+            result.Item.Overview = string.IsNullOrEmpty(episode.Description) ? "No description in Bangumi" : episode.Description;
         }
         else if (parent is Season season)
         {
@@ -168,7 +169,7 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
         var type = IsSpecial(info.Path) ? EpisodeType.Special : GuessEpisodeTypeFromFileName(fileName);
         var seriesId = localConfiguration.Id;
 
-        if (ShouldSkipMatchingByFileName(fileName))
+        if (ShouldSkipMatchingByFileName(fileName) || IsSpecial(info.Path))
         {
             //Only trust this plugin to fetch metadata of specials
             _log.LogWarning($"Other provider blocked: File with type {type}: {info.Path}");
@@ -242,7 +243,7 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
             //Should we search a normal episode to special?
             _log.LogWarning("Still cannot find episode {index} with type {type}, searching all types", episodeIndex,
                 type);
-            if (ShouldSkipMatchingByFileName(fileName)) return null;
+            return null;
             type = null;
             goto SkipBangumiId;
 
@@ -259,26 +260,42 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
     /// <seealso cref="MetaDataService.ExecuteRemoteProviders"/>
     private void PolluteItemLookup(ItemLookupInfo id)
     {
-        Dictionary<string, string> otherProviderKeys = new()
+        static void UpdateItemWithFakeProviderIds(Dictionary<string, string> providerIds)
         {
-            { "Imdb", "2" },
-            { "Tmdb", "3" },
-            { "Tvdb", "4" },
-            { "Tvcom", "5" },
-            { "TmdbCollection", "7" },
-            {"AniDb", "AniDB"}, // Jellyfin.Plugin.AniDB.Providers.ProviderNames
-            {"AniList", "AniList"}, // Jellyfin.Plugin.AniList.Providers.ProviderNames
-            {"AniSearch", "AniSearch"}, //Jellyfin.Plugin.AniSearch.Providers.ProviderNames
-        };
-        int fakeProviderId = 1145141919;
-        foreach (var kv in otherProviderKeys)
-        {
-            id.ProviderIds[kv.Value] = fakeProviderId.ToString();
+            Dictionary<string, string> otherProviderKeys = new()
+            {
+                { "Imdb", "2" },
+                { "Tmdb", "Tmdb" },
+                { "Tvdb", "Tvdb" },
+                { "Tvcom", "5" },
+                { "TmdbCollection", "7" },
+                {"AniDB", "AniDB"}, // Jellyfin.Plugin.AniDB.Providers.ProviderNames
+                {"AniList", "AniList"}, // Jellyfin.Plugin.AniList.Providers.ProviderNames
+                {"AniSearch", "AniSearch"}, //Jellyfin.Plugin.AniSearch.Providers.ProviderNames
+            };
+            int fakeProviderId = 1145141919;
+        
+            foreach (var kv in otherProviderKeys)
+            {
+                providerIds[kv.Value] = fakeProviderId.ToString();
+            }
         }
+        UpdateItemWithFakeProviderIds(id.ProviderIds);
+        Task.Run(async () =>
+        {
+            await Task.Delay(5000);
+            var thisItem = _libraryManager.FindByPath(id.Path, false);
+            if (thisItem is MediaBrowser.Controller.Entities.TV.Episode)
+            {
+                UpdateItemWithFakeProviderIds(thisItem.ProviderIds);
+                await _libraryManager.UpdateItemAsync(thisItem, thisItem.GetParent(), ItemUpdateType.MetadataEdit, new CancellationToken());
+                Console.WriteLine($"Bangumi Plugin: Edit episode {thisItem.Name} with fake ids");
+            }
+        });
     }
     private bool ShouldSkipMatchingByFileName(string fileName)
     {
-        string opEdPattern = @"\b(OP|ED|NCOP|NCED|PV|MENU|mini)(\d{1,2})?\b";
+        string opEdPattern = @"\b(OP|ED|NCOP|NCED|PV|MENU|mini)\s*(\d{1,2})?\b";
         return Regex.Match(fileName, opEdPattern, RegexOptions.IgnoreCase).Success;
     }
 
