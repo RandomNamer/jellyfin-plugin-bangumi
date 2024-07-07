@@ -71,6 +71,22 @@ public class SeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>, IHasO
                 // Search "Season 2" for "Season 1" and "Season 2 Part X" If this season is not yet identified we treat it as last
                 .Where(x => x.IndexNumber == info.IndexNumber - 1 || x.IndexNumber == info.IndexNumber)
                 .MaxBy(x => int.Parse(x.GetProviderId(Constants.ProviderName) ?? "0"));
+            if (previousSeason?.Path == info.Path)
+            {
+                //Season 1 absent, search for id
+                var searchName = $"{parent.Name} S{info.IndexNumber}";
+                _log.LogInformation($"No previous season found, guessing season id by name:  {searchName}");
+                var searchResult = await _api.SearchSubject(searchName, token);
+                if (info.Year != null)
+                    searchResult = searchResult.FindAll(x =>
+                        x.ProductionYear == null || x.ProductionYear == info.Year.ToString());
+                if (searchResult.Count > 0)
+                {
+                    subject = searchResult[0];
+                    subjectId = subject.Id;
+                }
+                _log.LogInformation("Guessed result: {Name} (#{ID})", subject?.Name, subject?.Id);
+            }
             if (int.TryParse(previousSeason?.GetProviderId(Constants.ProviderName), out var previousSeasonId) && previousSeasonId > 0)
             {
                 _log.LogInformation("Guessing season id from previous season #{ID}", previousSeasonId);
