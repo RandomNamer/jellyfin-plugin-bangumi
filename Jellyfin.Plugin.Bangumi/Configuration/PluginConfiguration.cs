@@ -37,4 +37,6 @@ public class PluginConfiguration : BasePluginConfiguration
     public int SeasonGuessMaxSearchCount { get; set; } = 2;
 
     public bool UseExistingEpisodeProviderId { get; set; } = false;
+
+    public bool SkipDescription { get; set; } = false;
 }
