@@ -74,20 +74,24 @@ public class SeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>, IHasO
             if (previousSeason?.Path == info.Path)
             {
                 //Season 1 absent, search for id
-                var searchName = $"{parent.Name} S{info.IndexNumber}";
-                _log.LogInformation($"No previous season found, guessing season id by name:  {searchName}");
-                var searchResult = await _api.SearchSubject(searchName, token);
-                if (info.Year != null)
-                    searchResult = searchResult.FindAll(x =>
-                        x.ProductionYear == null || x.ProductionYear == info.Year.ToString());
-                if (searchResult.Count > 0)
+                string[] searchNames = [$"{parent.Name} Season {info.IndexNumber}", $"{parent.Name} 第${info.IndexNumber}季"];
+                foreach (var searchName in searchNames)
                 {
-                    subject = searchResult[0];
-                    subjectId = subject.Id;
+                    _log.LogInformation($"Guessing season id by name:  {searchName}");
+                    var searchResult = await _api.SearchSubject(searchName, token);
+                    if (info.Year != null)
+                        searchResult = searchResult.FindAll(x =>
+                            x.ProductionYear == null || x.ProductionYear == info.Year.ToString());
+                    if (searchResult.Count > 0)
+                    {
+                        subject = searchResult[0];
+                        subjectId = subject.Id;
+                        break;
+                    }
                 }
                 _log.LogInformation("Guessed result: {Name} (#{ID})", subject?.Name, subject?.Id);
             }
-            if (int.TryParse(previousSeason?.GetProviderId(Constants.ProviderName), out var previousSeasonId) && previousSeasonId > 0)
+            else if (int.TryParse(previousSeason?.GetProviderId(Constants.ProviderName), out var previousSeasonId) && previousSeasonId > 0)
             {
                 _log.LogInformation("Guessing season id from previous season #{ID}", previousSeasonId);
                 subject = await _api.SearchNextSubject(previousSeasonId, token);

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -60,7 +61,10 @@ public class SeriesProvider : IRemoteMetadataProvider<Series, SeriesInfo>, IHasO
                 searchResult = searchResult.FindAll(x =>
                     x.ProductionYear == null || x.ProductionYear == info.Year.ToString());
             if (searchResult.Count > 0)
-                subjectId = searchResult[0].Id;
+            {
+                //fix for 329906, multiple results in same year (multi-season)
+                subjectId = searchResult.MinBy(r => r.Id)!.Id;
+            }
         }
 
         if (subjectId == 0 && info.OriginalTitle != null &&
