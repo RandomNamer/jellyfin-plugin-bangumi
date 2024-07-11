@@ -182,7 +182,7 @@ public class EpisodeProvider : IRemoteMetadataProvider<Episode, EpisodeInfo>, IH
         }
         var parent = _libraryManager.FindByPath(Path.GetDirectoryName(info.Path), true);
         //Extras in season;
-        if (parent is Folder)
+        if (parent is not Season && parent is Folder)
             parent = parent.GetParent();
         if (parent is Season)
             if (int.TryParse(parent.ProviderIds.GetValueOrDefault(Constants.ProviderName), out var seasonId))
