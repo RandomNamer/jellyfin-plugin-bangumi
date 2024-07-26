@@ -12,7 +12,11 @@ public class PluginConfiguration : BasePluginConfiguration
 {
     public TranslationPreferenceType TranslationPreference { get; set; } = TranslationPreferenceType.Chinese;
 
+    public TranslationPreferenceType PersonTranslationPreference { get; set; } = TranslationPreferenceType.Original;
+
     public int RequestTimeout { get; set; } = 5000;
+
+    public string BaseServerUrl { get; set; } = "https://api.bgm.tv";
 
     public bool ReportPlaybackStatusToBangumi { get; set; } = true;
 

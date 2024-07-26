@@ -16,19 +16,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Bangumi.Providers;
 
-public class SeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>, IHasOrder
+public class SeasonProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibraryManager libraryManager)
+    : IRemoteMetadataProvider<Season, SeasonInfo>, IHasOrder
 {
-    private readonly BangumiApi _api;
-    private readonly ILibraryManager _libraryManager;
-    private readonly ILogger<EpisodeProvider> _log;
-
-    public SeasonProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibraryManager libraryManager)
-    {
-        _api = api;
-        _log = log;
-        _libraryManager = libraryManager;
-    }
-
     private static PluginConfiguration Configuration => Plugin.Instance!.Configuration;
 
     public int Order => -5;
@@ -39,6 +29,10 @@ public class SeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>, IHasO
     {
         token.ThrowIfCancellationRequested();
         Subject? subject = null;
+
+        if (string.IsNullOrEmpty(info.Path))
+            return new MetadataResult<Season>();
+
         var baseName = Path.GetFileName(info.Path);
         var result = new MetadataResult<Season>
         {
@@ -46,7 +40,7 @@ public class SeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>, IHasO
         };
         var localConfiguration = await LocalConfiguration.ForPath(info.Path);
 
-        var parent = _libraryManager.FindByPath(Path.GetDirectoryName(info.Path) ?? "some", true);
+        var parent = libraryManager.FindByPath(Path.GetDirectoryName(info.Path) ?? "some", true);
 
         var subjectId = 0;
         if (localConfiguration.Id != 0)
@@ -77,8 +71,8 @@ public class SeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>, IHasO
                 string[] searchNames = [$"{parent.Name} Season {info.IndexNumber}", $"{parent.Name} 第${info.IndexNumber}季"];
                 foreach (var searchName in searchNames)
                 {
-                    _log.LogInformation($"Guessing season id by name:  {searchName}");
-                    var searchResult = await _api.SearchSubject(searchName, token);
+                    log.LogInformation($"Guessing season id by name:  {searchName}");
+                    var searchResult = await api.SearchSubject(searchName, token);
                     if (info.Year != null)
                         searchResult = searchResult.FindAll(x =>
                             x.ProductionYear == null || x.ProductionYear == info.Year.ToString());
@@ -89,15 +83,15 @@ public class SeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>, IHasO
                         break;
                     }
                 }
-                _log.LogInformation("Guessed result: {Name} (#{ID})", subject?.Name, subject?.Id);
+                log.LogInformation("Guessed result: {Name} (#{ID})", subject?.Name, subject?.Id);
             }
             else if (int.TryParse(previousSeason?.GetProviderId(Constants.ProviderName), out var previousSeasonId) && previousSeasonId > 0)
             {
-                _log.LogInformation("Guessing season id from previous season #{ID}", previousSeasonId);
-                subject = await _api.SearchNextSubject(previousSeasonId, token);
+                log.LogInformation("Guessing season id from previous season #{ID}", previousSeasonId);
+                subject = await api.SearchNextSubject(previousSeasonId, token);
                 if (subject != null)
                 {
-                    _log.LogInformation("Guessed result: {Name} (#{ID})", subject.Name, subject.Id);
+                    log.LogInformation("Guessed result: {Name} (#{ID})", subject.Name, subject.Id);
                     subjectId = subject.Id;
                 }
             }
@@ -106,7 +100,7 @@ public class SeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>, IHasO
         if (subjectId == 0)
             return result;
 
-        subject ??= await _api.GetSubject(subjectId, token);
+        subject ??= await api.GetSubject(subjectId, token);
         if (subject == null)
             return result;
 
@@ -133,11 +127,14 @@ public class SeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>, IHasO
         if (subject.ProductionYear?.Length == 4)
             result.Item.ProductionYear = int.Parse(subject.ProductionYear);
 
+        result.Item.HomePageUrl = subject.OfficialWebSite;
+        result.Item.EndDate = subject.EndDate;
+
         if (subject.IsNSFW)
             result.Item.OfficialRating = "X";
 
-        (await _api.GetSubjectPersonInfos(subject.Id, token)).ForEach(result.AddPerson);
-        (await _api.GetSubjectCharacters(subject.Id, token)).ForEach(result.AddPerson);
+        (await api.GetSubjectPersonInfos(subject.Id, token)).ForEach(result.AddPerson);
+        (await api.GetSubjectCharacters(subject.Id, token)).ForEach(result.AddPerson);
 
         return result;
     }
@@ -149,7 +146,7 @@ public class SeasonProvider : IRemoteMetadataProvider<Season, SeasonInfo>, IHasO
 
     public Task<HttpResponseMessage> GetImageResponse(string url, CancellationToken token)
     {
-        return _api.GetHttpClient().GetAsync(url, token);
+        return api.GetHttpClient().GetAsync(url, token);
     }
 }
 
