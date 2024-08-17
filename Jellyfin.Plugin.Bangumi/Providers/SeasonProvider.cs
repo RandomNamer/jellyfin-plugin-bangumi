@@ -68,7 +68,7 @@ public class SeasonProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibra
             if (previousSeason?.Path == info.Path)
             {
                 //Season 1 absent, search for id
-                string[] searchNames = [$"{parent.Name} Season {info.IndexNumber}", $"{parent.Name} 第${info.IndexNumber}季"];
+                string[] searchNames = [$"{parent.Name} Season {info.IndexNumber}", $"{parent.Name} 第{info.IndexNumber}季"];
                 foreach (var searchName in searchNames)
                 {
                     log.LogInformation($"Guessing season id by name:  {searchName}");

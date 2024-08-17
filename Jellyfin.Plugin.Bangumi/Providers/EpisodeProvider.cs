@@ -44,6 +44,8 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
         new(@"(\d{2,})")
     };
 
+    private static readonly Regex FloatEpisodeIndexRegex = new(@"E(\d+\.\d)[^\d]+");
+
     private static readonly Regex OpeningEpisodeFileNameRegex = new(@"(NC)?OP([^a-zA-Z]|$)");
     private static readonly Regex EndingEpisodeFileNameRegex = new(@"(NC)?ED([^a-zA-Z]|$)");
     private static readonly Regex SpecialEpisodeFileNameRegex = new(@"(SPs?|Specials?|OVA|OAD|mini)([^a-zA-Z]|$)", RegexOptions.IgnoreCase);
@@ -142,14 +144,14 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
         return api.GetHttpClient().GetAsync(url, token);
     }
 
-    private static bool IsSpecial(string filePath, bool checkParent = true)
+    private static bool IsSpecial(string filePath, bool checkParent = true, bool checkJellyfinFolderNames = false)
     {
         var fileName = Path.GetFileName(filePath);
         var parentPath = Path.GetDirectoryName(filePath);
         var folderName = Path.GetFileName(parentPath);
         return SpecialEpisodeFileNameRegex.IsMatch(fileName) ||
                (checkParent && SpecialEpisodeFileNameRegex.IsMatch(folderName ?? "")) ||
-               JellyfinSpecialsFolderNameRegex.IsMatch(folderName ?? "");
+               (checkJellyfinFolderNames && JellyfinSpecialsFolderNameRegex.IsMatch(folderName ?? ""));
     }
 
     private async Task<Model.Episode?> GetEpisode(EpisodeInfo info, LocalConfiguration localConfiguration, CancellationToken token)
@@ -187,6 +189,8 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
             seriesId = localConfiguration.Id;
 
         double? episodeIndex = info.IndexNumber;
+
+        episodeIndex = ForceReplaceEpisodeIndex(info.Path) ??  episodeIndex;
 
         if (Configuration.AlwaysReplaceEpisodeNumber)
             episodeIndex = GuessEpisodeNumber(episodeIndex, fileName);
@@ -257,6 +261,19 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
         {
             return null;
         }
+    }
+
+    private double? ForceReplaceEpisodeIndex(string path)
+    {
+        if (FloatEpisodeIndexRegex.IsMatch(path))
+        {
+            if (double.TryParse(FloatEpisodeIndexRegex.Match(path).Groups[1].Value, out var result))
+            {
+                return result;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

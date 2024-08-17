@@ -605,6 +605,7 @@ public class Episode
             SeriesProviderIds = { { Constants.ProviderName, "211567" } }
         }, _token);
         Assert.AreEqual(null, episodeData?.Item);
+        //No worry, jellyfin shall handle it.
         
         episodeData = await _provider.GetMetadata(new EpisodeInfo
         {
@@ -613,5 +614,25 @@ public class Episode
             SeriesProviderIds = { { Constants.ProviderName, "211567" } }
         }, _token);
         Assert.AreNotEqual(null, episodeData?.Item);
+    }
+
+    [TestMethod]
+    public async Task TestFloatEpisodeIndex()
+    {
+        var episodeData = await _provider.GetMetadata(new EpisodeInfo
+        {
+            IndexNumber = 6,
+            Path = FakePath.CreateFile("Anime\\Monogatari Series Off & Monster Season [tvdbid-444877]\\Season 01\\Episode S01E06.5.mp4"),
+            SeriesProviderIds = { { Constants.ProviderName, "475354" } }
+        }, _token);
+        Assert.AreEqual(episodeData.Item.ProviderIds.GetValueOrDefault(Constants.ProviderName), "1364719");
+        
+        episodeData = await _provider.GetMetadata(new EpisodeInfo
+        {
+            IndexNumber = 6,
+            Path = FakePath.CreateFile("Anime\\Monogatari Series Off & Monster Season [tvdbid-444877]\\Season 01\\Episode S01E06.mp4"),
+            SeriesProviderIds = { { Constants.ProviderName, "475354" } }
+        }, _token);
+        Assert.AreEqual(episodeData.Item.ProviderIds.GetValueOrDefault(Constants.ProviderName), "1364718");
     }
 }
