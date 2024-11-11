@@ -25,6 +25,20 @@ public class SeasonProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibra
 
     public string Name => Constants.ProviderName;
 
+    private static readonly Dictionary<int, string> ChineseCharOrdinal = new()
+    {
+        { 1, "一" },
+        { 2, "二" },
+        { 3, "三" },
+        { 4, "四" },
+        { 5, "五" },
+        { 6, "六" },
+        { 7, "七" },
+        { 8, "八" },
+        { 9, "九" },
+        { 10, "十" },
+    };
+
     public async Task<MetadataResult<Season>> GetMetadata(SeasonInfo info, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
@@ -68,7 +82,7 @@ public class SeasonProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibra
             if (previousSeason?.Path == info.Path)
             {
                 //Season 1 absent, search for id
-                string[] searchNames = [$"{parent.Name} Season {info.IndexNumber}", $"{parent.Name} 第{info.IndexNumber}季"];
+                string[] searchNames = [$"{parent.Name} 第{ChineseCharOrdinal[info.IndexNumber ?? 1]}季", $"{parent.Name} Season {info.IndexNumber}"];
                 foreach (var searchName in searchNames)
                 {
                     log.LogInformation($"Guessing season id by name:  {searchName}");
