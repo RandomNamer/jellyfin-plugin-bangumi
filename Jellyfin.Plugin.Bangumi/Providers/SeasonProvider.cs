@@ -66,7 +66,8 @@ public class SeasonProvider(BangumiApi api, ArchiveData archive, ILogger<Episode
         {
             subjectId = subjectIdFromAttribute;
         }
-        else if (int.TryParse(info.ProviderIds.GetOrDefault(Constants.ProviderName), out var subjectIdFromInfo))
+        //If ignore existing ID enabled, except for first season (equals to Series), force guess season for every run.
+        else if (int.TryParse(info.ProviderIds.GetOrDefault(Constants.ProviderName), out var subjectIdFromInfo) && Configuration.TrustExistedBangumiId)
         {
             subjectId = subjectIdFromInfo;
         }
