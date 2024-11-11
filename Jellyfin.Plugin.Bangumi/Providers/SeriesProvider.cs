@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.Bangumi.Archive;
 using Jellyfin.Plugin.Bangumi.Configuration;
 using Jellyfin.Plugin.Bangumi.Model;
 using MediaBrowser.Controller.Entities.TV;
@@ -15,7 +16,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Bangumi.Providers;
 
-public class SeriesProvider(BangumiApi api, ILogger<SeriesProvider> log)
+public class SeriesProvider(BangumiApi api, ArchiveData archive, ILogger<SeriesProvider> log)
     : IRemoteMetadataProvider<Series, SeriesInfo>, IHasOrder
 {
     private static PluginConfiguration Configuration => Plugin.Instance!.Configuration;
@@ -81,7 +82,8 @@ public class SeriesProvider(BangumiApi api, ILogger<SeriesProvider> log)
 
         if (subjectId == 0 && Configuration.AlwaysGetTitleByAnitomySharp)
         {
-            var searchName = Anitomy.ExtractAnimeTitle(baseName) ?? info.Name;
+            var anitomy = new Anitomy(baseName);
+            var searchName = anitomy.ExtractAnimeTitle() ?? info.Name;
             log.LogInformation("Searching {Name} in bgm.tv", searchName);
             // 不保证使用非原名或中文进行查询时返回正确结果
             var searchResult = await api.SearchSubject(searchName, token);
@@ -95,7 +97,14 @@ public class SeriesProvider(BangumiApi api, ILogger<SeriesProvider> log)
         if (subjectId == 0)
             return result;
 
-        var subject = await api.GetSubject(subjectId, token);
+        // search subject in archive
+        var archivedSubject = await archive.Subject.FindById(subjectId);
+        var subject = archivedSubject?.ToSubject();
+
+        // fallback to online api
+        subject ??= await api.GetSubject(subjectId, token);
+
+        // return if subject still not found
         if (subject == null)
             return result;
 
@@ -159,7 +168,6 @@ public class SeriesProvider(BangumiApi api, ILogger<SeriesProvider> log)
         else if (!string.IsNullOrEmpty(searchInfo.Name))
         {
             var series = await api.SearchSubject(searchInfo.Name, token);
-            series = Subject.SortBySimilarity(series, searchInfo.Name);
             foreach (var item in series)
             {
                 var itemId = $"{item.Id}";

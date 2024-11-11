@@ -57,7 +57,8 @@ public class MovieProvider(BangumiApi api, ILogger<MovieProvider> logger)
 
         if (subjectId == 0 && Configuration.AlwaysGetTitleByAnitomySharp)
         {
-            var searchName = Anitomy.ExtractAnimeTitle(baseName) ?? info.Name;
+            var anitomy = new Anitomy(baseName);
+            var searchName = anitomy.ExtractAnimeTitle() ?? info.Name;
             logger.LogInformation("Searching {Name} in bgm.tv", searchName);
             // 不保证使用非原名或中文进行查询时返回正确结果
             var searchResult = await api.SearchSubject(searchName, token);
@@ -128,7 +129,6 @@ public class MovieProvider(BangumiApi api, ILogger<MovieProvider> logger)
         else if (!string.IsNullOrEmpty(searchInfo.Name))
         {
             var series = await api.SearchSubject(searchInfo.Name, token);
-            series = Subject.SortBySimilarity(series, searchInfo.Name);
             foreach (var item in series)
             {
                 var itemId = $"{item.Id}";

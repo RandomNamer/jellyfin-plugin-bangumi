@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.Bangumi.Archive;
 using Jellyfin.Plugin.Bangumi.Configuration;
 using Jellyfin.Plugin.Bangumi.Model;
 using MediaBrowser.Controller.Entities;
@@ -19,11 +20,11 @@ using BangumiEpisode = Jellyfin.Plugin.Bangumi.Model.Episode;
 
 namespace Jellyfin.Plugin.Bangumi.Providers;
 
-public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibraryManager libraryManager)
+public partial class EpisodeProvider(BangumiApi api, ArchiveData archive, ILogger<EpisodeProvider> log, ILibraryManager libraryManager)
     : IRemoteMetadataProvider<Episode, EpisodeInfo>, IHasOrder
 {
     private static readonly Regex[] NonEpisodeFileNameRegex =
-    {
+    [
         new(@"[\[\(][0-9A-F]{8}[\]\)]", RegexOptions.IgnoreCase),
         new(@"S\d{2,}", RegexOptions.IgnoreCase),
         new(@"yuv[4|2|0]{3}p(10|8)?", RegexOptions.IgnoreCase),
@@ -31,34 +32,34 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
         new(@"\d{3,4}x\d{3,4}", RegexOptions.IgnoreCase),
         new(@"(Hi)?10p", RegexOptions.IgnoreCase),
         new(@"(8|10)bit", RegexOptions.IgnoreCase),
-        new(@"(x|h)(264|265)", RegexOptions.IgnoreCase)
-    };
+        new Regex(@"(x|h)(264|265)", RegexOptions.IgnoreCase),
+        new Regex(@"\[\d{2}(0[1-9]|1[0-2])(0[1-9]|1[0-9]|2[0-9]|3[0-1])]"),
+        new Regex(@"(?<=[^P])V\d+")
+    ];
 
     private static readonly Regex[] EpisodeFileNameRegex =
-    {
+    [
         new(@"\[([\d\.]{2,})\]"),
         new(@"- ?([\d\.]{2,})"),
         new(@"EP?([\d\.]{2,})", RegexOptions.IgnoreCase),
         new(@"\[([\d\.]{2,})"),
         new(@"#([\d\.]{2,})"),
-        new(@"(\d{2,})")
-    };
+        new(@"(\d{2,})"),
+        new(@"\[([\d\.]+)\]")
+    ];
 
     private static readonly Regex FloatEpisodeIndexRegex = new(@"E(\d+\.\d)[^\d]+");
-
-    private static readonly Regex OpeningEpisodeFileNameRegex = new(@"(NC)?OP([^a-zA-Z]|$)");
-    private static readonly Regex EndingEpisodeFileNameRegex = new(@"(NC)?ED([^a-zA-Z]|$)");
-    private static readonly Regex SpecialEpisodeFileNameRegex = new(@"(SPs?|Specials?|OVA|OAD|mini)([^a-zA-Z]|$)", RegexOptions.IgnoreCase);
-    private static readonly Regex PreviewEpisodeFileNameRegex = new(@"[^\w]PV([^a-zA-Z]|$)");
+    
     //In JF 10.9 or later, files under all these folder should never trigger metadata fetching
     private static readonly Regex JellyfinSpecialsFolderNameRegex = new(@"\b(behind the scenes|deleted scenes|interviews|scenes|samples|shorts|featurettes|clips|other|extras|trailers)\b");
+
     private static readonly Regex[] AllSpecialEpisodeFileNameRegex =
-    {
-        SpecialEpisodeFileNameRegex,
-        PreviewEpisodeFileNameRegex,
-        OpeningEpisodeFileNameRegex,
-        EndingEpisodeFileNameRegex
-    };
+    [
+        SpecialEpisodeFileNameRegex(),
+        PreviewEpisodeFileNameRegex(),
+        OpeningEpisodeFileNameRegex(),
+        EndingEpisodeFileNameRegex()
+    ];
 
     private static PluginConfiguration Configuration => Plugin.Instance!.Configuration;
 
@@ -93,7 +94,7 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
         result.Item.Overview = string.IsNullOrEmpty(episode.Description) || Configuration.SkipDescription ? null : episode.Description;
         result.Item.ParentIndexNumber = info.ParentIndexNumber ?? 1;
 
-        var parent = libraryManager.FindByPath(Path.GetDirectoryName(info.Path), true);
+        var parent = libraryManager.FindByPath(Path.GetDirectoryName(info.Path)!, true);
         if (IsSpecial(info.Path, false) || episode.Type == EpisodeType.Special || info.ParentIndexNumber == 0)
         {
             result.Item.ParentIndexNumber = 0;
@@ -117,13 +118,11 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
         if (series == null)
             return result;
 
-        // use title and overview from special episode subject if episode data is empty
+        // use title from special episode subject if episode data is empty
         if (string.IsNullOrEmpty(result.Item.Name))
             result.Item.Name = series.Name;
         if (string.IsNullOrEmpty(result.Item.OriginalTitle))
             result.Item.OriginalTitle = series.OriginalName;
-        if (string.IsNullOrEmpty(result.Item.Overview))
-            result.Item.Overview = series.Summary;
 
         var seasonNumber = parent is Season ? parent.IndexNumber : 1;
         if (!string.IsNullOrEmpty(episode.AirDate) && string.Compare(episode.AirDate, series.AirDate, StringComparison.Ordinal) < 0)
@@ -143,14 +142,26 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
     {
         return api.GetHttpClient().GetAsync(url, token);
     }
+    
+    [GeneratedRegex(@"(NC)?OP([^a-zA-Z]|$)")]
+    private static partial Regex OpeningEpisodeFileNameRegex();
+
+    [GeneratedRegex(@"(NC)?ED([^a-zA-Z]|$)")]
+    private static partial Regex EndingEpisodeFileNameRegex();
+
+    [GeneratedRegex(@"(SPs?|Specials?|OVA|OAD)([^a-zA-Z]|$)")]
+    private static partial Regex SpecialEpisodeFileNameRegex();
+
+    [GeneratedRegex(@"[^\w]PV([^a-zA-Z]|$)")]
+    private static partial Regex PreviewEpisodeFileNameRegex();
 
     private static bool IsSpecial(string filePath, bool checkParent = true, bool checkJellyfinFolderNames = false)
     {
         var fileName = Path.GetFileName(filePath);
         var parentPath = Path.GetDirectoryName(filePath);
         var folderName = Path.GetFileName(parentPath);
-        return SpecialEpisodeFileNameRegex.IsMatch(fileName) ||
-               (checkParent && SpecialEpisodeFileNameRegex.IsMatch(folderName ?? "")) ||
+        return SpecialEpisodeFileNameRegex().IsMatch(fileName) ||
+               (checkParent && SpecialEpisodeFileNameRegex().IsMatch(folderName ?? "")) ||
                (checkJellyfinFolderNames && JellyfinSpecialsFolderNameRegex.IsMatch(folderName ?? ""));
     }
 
@@ -162,6 +173,8 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
 
         var type = IsSpecial(info.Path) ? EpisodeType.Special : GuessEpisodeTypeFromFileName(fileName);
         var seriesId = localConfiguration.Id;
+    
+        var parent = libraryManager.FindByPath(Path.GetDirectoryName(info.Path)!, true);
         
         if (ShouldSkipMatchingByFileName(fileName) || IsSpecial(info.Path))
         {
@@ -173,29 +186,42 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
                 return null;
             }
         }
-        var parent = libraryManager.FindByPath(Path.GetDirectoryName(info.Path), true);
+        
         //Extras in season;
         if (parent is not Season && parent is Folder)
             parent = parent.GetParent();
         if (parent is Season)
             if (int.TryParse(parent.ProviderIds.GetValueOrDefault(Constants.ProviderName), out var seasonId))
+            {
+                log.LogInformation("used session id {SeasonId} from parent", seasonId);
                 seriesId = seasonId;
+            }
+        
         //SeriesProvider is always first season's 
         if (seriesId == 0)
             if (!int.TryParse(info.SeriesProviderIds?.GetValueOrDefault(Constants.ProviderName), out seriesId))
                 return null;
 
         if (localConfiguration.Id != 0)
+        {
+            log.LogInformation("used session id {SeasonId} from local configuration", localConfiguration.Id);
             seriesId = localConfiguration.Id;
+        }
 
         double? episodeIndex = info.IndexNumber;
 
         episodeIndex = ForceReplaceEpisodeIndex(info.Path) ??  episodeIndex;
 
         if (Configuration.AlwaysReplaceEpisodeNumber)
+        {
+            log.LogInformation("guess episode number from filename {FileName} because of plugin configuration", fileName);
             episodeIndex = GuessEpisodeNumber(episodeIndex, fileName);
+        }
         else if (episodeIndex is null or 0)
+        {
+            log.LogInformation("guess episode number from filename {FileName} because it's empty", fileName);
             episodeIndex = GuessEpisodeNumber(episodeIndex, fileName);
+        }
 
         if (localConfiguration.Offset != 0)
         {
@@ -205,38 +231,85 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
         log.LogInformation("GetEpisode final request > parent season {s}, parsed season id: {i}, episodeIndex: {ID}, type: {TYPE}", parent, seriesId, episodeIndex, type);
         if (Configuration.UseExistingEpisodeProviderId && int.TryParse(info.ProviderIds?.GetValueOrDefault(Constants.ProviderName), out var episodeId))
         {
-            var episode = await api.GetEpisode(episodeId, token);
+            log.LogInformation("fetching episode info using saved id: {EpisodeId}", episodeId);
+
+            // search episode in archive
+            var archivedEpisode = await archive.Episode.FindById(episodeId);
+            var episode = archivedEpisode?.ToEpisode();
+
+            // fetch episode from online api if episode was aired recently
+            if (episode != null && DateTime.TryParse(episode.AirDate, out var airDate))
+                if (airDate > DateTime.Now.Subtract(TimeSpan.FromDays(7)))
+                    episode = null;
+
+            // fallback to online api
+            episode ??= await api.GetEpisode(episodeId, token);
+
+            // return if episode still not found
             if (episode == null)
                 goto SkipBangumiId;
 
             if (Configuration.TrustExistedBangumiId)
+            {
+                log.LogInformation("trust exists bangumi id is enabled, skip further checks");
                 return episode;
+            }
 
             if (episode.Type != EpisodeType.Normal || AllSpecialEpisodeFileNameRegex.Any(x => x.IsMatch(info.Path)))
+            {
+                log.LogInformation("current episode is special episode, skip further checks");
                 return episode;
+            }
 
             if (episode.ParentId == seriesId && Math.Abs(episode.Order - episodeIndex.Value) < 0.1)
                 return episode;
+
+            log.LogInformation("episode is not belongs to series {SeriesId}, ignoring result", seriesId);
         }
 
         SkipBangumiId:
-        var episodeListData = await api.GetSubjectEpisodeList(seriesId, type, episodeIndex.Value, token);
+        List<Model.Episode>? episodeListData = null;
+        if (await archive.SubjectEpisode.Ready())
+        {
+            log.LogInformation("load subject {SubjectID} episode list from archive", seriesId);
+            episodeListData = (await archive.SubjectEpisode.GetEpisodes(seriesId))
+                .Where(x => x.Type == type || type == null)
+                .Select(x => x.ToEpisode())
+                .ToList();
+        }
+
         if (episodeListData == null)
+        {
+            log.LogInformation("searching episode in series episode list");
+            episodeListData ??= await api.GetSubjectEpisodeList(seriesId, type, episodeIndex.Value, token);
+        }
+
+        if (episodeListData == null)
+        {
+            log.LogWarning("search failed: no episode found in episode");
             return null;
+        }
+
+        if (episodeListData.Count == 1 && type is null or EpisodeType.Normal)
+        {
+            log.LogInformation("only one episode found");
+            return episodeListData.First();
+        }
+
         if (type is null or EpisodeType.Normal)
         {
-            if (episodeListData.Count == 1) return episodeListData.First();
+            // if (episodeListData.Count == 1) return episodeListData.First();
+            var maxEpisodeNumber = episodeListData.Count > 0 ? episodeListData.Max(x => x.Order) : double.PositiveInfinity;
             episodeIndex = GuessEpisodeNumber(
                 episodeIndex + localConfiguration.Offset,
                 fileName,
-                episodeListData.Max(x => x.Order) + localConfiguration.Offset
+                maxEpisodeNumber + localConfiguration.Offset
             ) - localConfiguration.Offset;
         }
         else if (episodeListData.Count == 0)
         {
             //Should we search a normal episode to special?
-            log.LogWarning("No episode found for {type}, searching all types", episodeIndex,
-                type);
+            log.LogWarning("No episode found for {type}, searching all types", type);
             type = null;
             goto SkipBangumiId;   
         }
@@ -262,8 +335,8 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
             return null;
         }
     }
-
-    private double? ForceReplaceEpisodeIndex(string path)
+    
+     private double? ForceReplaceEpisodeIndex(string path)
     {
         if (FloatEpisodeIndexRegex.IsMatch(path))
         {
@@ -330,7 +403,7 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
         else return 0;
     }
 
-    private EpisodeType? GuessEpisodeTypeFromFileName(string fileName)
+    private static EpisodeType? GuessEpisodeTypeFromFileName(string fileName)
     {
         var tempName = fileName;
         foreach (var regex in NonEpisodeFileNameRegex)
@@ -340,13 +413,13 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
             tempName = regex.Replace(tempName, "");
         }
 
-        if (OpeningEpisodeFileNameRegex.IsMatch(tempName))
+        if (OpeningEpisodeFileNameRegex().IsMatch(tempName))
             return EpisodeType.Opening;
-        if (EndingEpisodeFileNameRegex.IsMatch(tempName))
+        if (EndingEpisodeFileNameRegex().IsMatch(tempName))
             return EpisodeType.Ending;
-        if (SpecialEpisodeFileNameRegex.IsMatch(tempName))
+        if (SpecialEpisodeFileNameRegex().IsMatch(tempName))
             return EpisodeType.Special;
-        if (PreviewEpisodeFileNameRegex.IsMatch(tempName))
+        if (PreviewEpisodeFileNameRegex().IsMatch(tempName))
             return EpisodeType.Preview;
         return null;
     }
@@ -359,9 +432,13 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
 
         if (Configuration.AlwaysGetEpisodeByAnitomySharp)
         {
-            var anitomyIndex = Anitomy.ExtractEpisodeNumber(fileName);
+            var anitomy = new Anitomy(fileName);
+            var anitomyIndex = anitomy.ExtractEpisodeNumber();
             if (!string.IsNullOrEmpty(anitomyIndex))
+            {
+                log.LogInformation("used episode number {index} from anitomy", anitomyIndex);
                 return double.Parse(anitomyIndex);
+            }
         }
 
         foreach (var regex in NonEpisodeFileNameRegex)
@@ -378,36 +455,37 @@ public class EpisodeProvider(BangumiApi api, ILogger<EpisodeProvider> log, ILibr
             if (!double.TryParse(regex.Match(tempName).Groups[1].Value.Trim('.'), out var index))
                 continue;
             episodeIndexFromFilename = index;
+            log.LogInformation("used episode number {index} from filename because it matches {pattern}", index, regex);
             break;
         }
 
         if (Configuration.AlwaysReplaceEpisodeNumber)
         {
-            log.LogWarning("use episode index {NewIndex} from filename {FileName}", episodeIndexFromFilename, fileName);
+            log.LogWarning("use episode number {NewIndex} from filename {FileName}", episodeIndexFromFilename, fileName);
             return episodeIndexFromFilename;
         }
 
         if (episodeIndexFromFilename.Equals(episodeIndex))
         {
-            log.LogInformation("use exists episode number {Index} for {FileName}", episodeIndex, fileName);
+            log.LogInformation("use exists episode number {Index} because it's same", episodeIndex);
             return episodeIndex;
         }
 
         if (episodeIndex > max)
         {
-            log.LogWarning("file {FileName} has incorrect episode index {Index} (max {Max}), set to {NewIndex}",
+            log.LogWarning("{FileName} has incorrect episode index {Index} (max {Max}), set to {NewIndex}",
                 fileName, episodeIndex, max, episodeIndexFromFilename);
             return episodeIndexFromFilename;
         }
 
         if (episodeIndexFromFilename > 0 && episodeIndex <= 0)
         {
-            log.LogWarning("file {FileName} may has incorrect episode index {Index}, should be {NewIndex}",
+            log.LogWarning("{FileName} may has incorrect episode index {Index}, should be {NewIndex}",
                 fileName, episodeIndex, episodeIndexFromFilename);
             return episodeIndexFromFilename;
         }
 
-        log.LogInformation("use exists episode number {Index} from file name {FileName}", episodeIndex, fileName);
+        log.LogInformation("use exists episode number {Index}", episodeIndex);
         return episodeIndex;
     }
 }

@@ -10,8 +10,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="MediaBrowser.Server.Core" Version="4.9.0.12-beta" />
-        <PackageReference Include="System.IO.Pipelines" IncludeAssets="compile" Version="6.0.0" />
+        <PackageReference Include="MediaBrowser.Server.Core" />
+        <PackageReference Include="System.IO.Pipelines" IncludeAssets="compile" />
     </ItemGroup>
 
     <ItemGroup>
@@ -30,7 +30,7 @@
         <Compile Include="..\Jellyfin.Plugin.Bangumi\OAuth\*.cs" Exclude="..\Jellyfin.Plugin.Bangumi\OAuth\OAuthController.cs">
             <Link>OAuth\*.cs</Link>
         </Compile>
-        <Compile Include="..\Jellyfin.Plugin.Bangumi\ScheduledTask\*.cs">
+        <Compile Include="..\Jellyfin.Plugin.Bangumi\ScheduledTask\*.cs" Exclude="..\Jellyfin.Plugin.Bangumi\ScheduledTask\ArchiveDownloadTask.cs">
             <Link>ScheduledTask\*.cs</Link>
         </Compile>
     </ItemGroup>
@@ -41,8 +41,4 @@
         <EmbeddedResource Include="Configuration\ConfigPage.html" />
         <EmbeddedResource Include="Configuration\ConfigPage.js" />
     </ItemGroup>
-
-    <Target Name="Release" AfterTargets="Build" Condition="'$(Configuration)'=='Release'">
-        <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(MSBuildProjectDirectory)/.." />
-    </Target>
 </Project>

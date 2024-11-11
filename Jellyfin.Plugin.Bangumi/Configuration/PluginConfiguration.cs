@@ -42,5 +42,9 @@ public class PluginConfiguration : BasePluginConfiguration
 
     public int SeasonGuessMaxSearchCount { get; set; } = 2;
 
+    public bool SortByFuzzScore { get; set; } = false;
+
+    public bool RefreshRatingWhenArchiveUpdate { get; set; } = false;
+
     public bool SkipDescription { get; set; } = false;
 }

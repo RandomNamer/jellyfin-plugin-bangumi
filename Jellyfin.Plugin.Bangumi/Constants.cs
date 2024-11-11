@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using MyNamespace;
 
 namespace Jellyfin.Plugin.Bangumi;
@@ -12,5 +14,8 @@ public static class Constants
 
     public const string Language = "zh";
 
-    public const string HtmlLineBreak = "<br>";
+    public static readonly JsonSerializerOptions JsonSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
 }
