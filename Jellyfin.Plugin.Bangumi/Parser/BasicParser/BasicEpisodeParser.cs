@@ -161,14 +161,16 @@ SkipBangumiId:
                 fileName,
                 maxEpisodeNumber + context.LocalConfiguration.Offset
             ) - context.LocalConfiguration.Offset;
+            var normalEpisodeEpOffset = episodeListData.Where(x => x.Type == EpisodeType.Normal).Min(x => x.Order) - 1;
+            if (context.Configuration.MatchEpisodeUseEp && normalEpisodeEpOffset > 0) episodeIndex += normalEpisodeEpOffset;
         }
 
         try
         {
-            var episode = episodeListData.OrderBy(x => x.Type).FirstOrDefault(x => context.Configuration.MatchEpisodeUseEp ? x.Index.Equals(episodeIndex) : x.Order.Equals(episodeIndex));
+            var episode = episodeListData.OrderBy(x => x.Type).FirstOrDefault(x => x.Order.Equals(episodeIndex));
             if (episode != null || type is null or EpisodeType.Normal)
             {
-                log.Info("found matching episode {index} with type {type}", episodeIndex, type);
+                log.Info("found matching episode {index} with type {type}, use ep index: {ep} ", episodeIndex, type, context.Configuration.MatchEpisodeUseEp);
                 return episode;
             }
 
