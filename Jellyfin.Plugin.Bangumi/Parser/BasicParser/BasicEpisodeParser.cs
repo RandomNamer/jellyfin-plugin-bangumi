@@ -89,7 +89,7 @@ public partial class BasicEpisodeParser(EpisodeParserContext context, Logger<Bas
             return null;
 
         var type = IsSpecial(context.Info.Path, context.LibraryManager) ? EpisodeType.Special : GuessEpisodeTypeFromFileName(fileName);
-        
+
         var seriesId = LocalConfigurationHelper.GetSeriesId(context.LocalConfiguration, context.Info, context.LibraryManager);
 
         double episodeIndex = context.Info.IndexNumber ?? 0;
@@ -129,7 +129,9 @@ public partial class BasicEpisodeParser(EpisodeParserContext context, Logger<Bas
                 return episode;
             }
 
-            if (episode.ParentId == seriesId && Math.Abs(episode.Order - episodeIndex) < 0.1)
+            double targetEpisodeIndex = context.Configuration.MatchEpisodeUseEp ? episode.Index : episode.Order;
+
+            if (episode.ParentId == seriesId && Math.Abs(targetEpisodeIndex - episodeIndex) < 0.1)
                 return episode;
 
             log.Info("episode is not belongs to series {SeriesId}, ignoring result", seriesId);
@@ -163,7 +165,7 @@ SkipBangumiId:
 
         try
         {
-            var episode = episodeListData.OrderBy(x => x.Type).FirstOrDefault(x => x.Order.Equals(episodeIndex));
+            var episode = episodeListData.OrderBy(x => x.Type).FirstOrDefault(x => context.Configuration.MatchEpisodeUseEp ? x.Index.Equals(episodeIndex) : x.Order.Equals(episodeIndex));
             if (episode != null || type is null or EpisodeType.Normal)
             {
                 log.Info("found matching episode {index} with type {type}", episodeIndex, type);
